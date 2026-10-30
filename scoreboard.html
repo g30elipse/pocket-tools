@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Scoreboard" />
+<meta name="theme-color" content="#5c2617" />
+<link rel="apple-touch-icon" href="icon-scoreboard.png" />
+<title>Score Board</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; min-height: 100vh; font-family: Georgia, "Times New Roman", serif; color: #2a1a0e;
+         background: #3b1d12 radial-gradient(ellipse at 30% 20%, #6e2f1d 0%, #4a2216 45%, #2c130b 100%); }
+  .board { max-width: 640px; margin: 0 auto; padding: 16px 12px 30px; }
+  .player { background: linear-gradient(180deg, #7a3522, #5c2617); border: 3px solid #2a1209; border-radius: 14px; padding: 14px 14px 18px; margin-bottom: 14px;
+            box-shadow: inset 0 2px 0 rgba(255,255,255,.08), 0 6px 16px rgba(0,0,0,.45); }
+  .top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .name { flex: 1; background: linear-gradient(180deg, #f3dc8f, #c9a64a); border: 2px solid #8a6d22; border-radius: 6px; padding: 8px 10px;
+          font: 700 18px Georgia, serif; color: #2a1a0e; text-align: center; outline: none; min-width: 0; }
+  .frames { display: flex; align-items: center; gap: 4px; background: linear-gradient(180deg, #f3dc8f, #c9a64a); border: 2px solid #8a6d22; border-radius: 6px; padding: 4px 6px; font-weight: 700; }
+  .frames span { min-width: 26px; text-align: center; font-size: 20px; }
+  .frames small { font-size: 11px; letter-spacing: .05em; margin-right: 2px; }
+  .mini { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #8a6d22; background: #e8c96a; font: 700 18px Georgia, serif; color: #2a1a0e; padding: 0; line-height: 1; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .big { flex: 1; text-align: center; font: 700 76px/1 Georgia, serif; color: #f6e2a0; text-shadow: 0 3px 0 #2a1209, 0 0 18px rgba(246,226,160,.25); font-variant-numeric: tabular-nums; }
+  .pm { width: 74px; height: 74px; border-radius: 50%; border: 3px solid #8a6d22; font: 700 44px/1 Georgia, serif; color: #2a1a0e; padding: 0;
+        background: radial-gradient(circle at 35% 30%, #fff1b8, #d9b24f 55%, #9c7a24); box-shadow: 0 4px 0 #5a4210, 0 6px 12px rgba(0,0,0,.4); }
+  .pm:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a4210; }
+  .rail { margin-top: 16px; position: relative; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 34px; background: transparent; }
+  input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(180deg, #fff3c4, #c9a64a 60%, #8a6d22); border: 1px solid #6b5418; }
+  input[type=range]::-moz-range-track { height: 8px; border-radius: 4px; background: linear-gradient(180deg, #fff3c4, #c9a64a 60%, #8a6d22); border: 1px solid #6b5418; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 34px; height: 38px; margin-top: -16px; border: 2px solid #6b5418; border-radius: 5px 5px 50% 50% / 5px 5px 60% 60%;
+        background: radial-gradient(circle at 50% 35%, #fff6cf 0 18%, #e2bf5a 20%, #b8932f); box-shadow: 0 3px 6px rgba(0,0,0,.5); }
+  input[type=range]::-moz-range-thumb { width: 30px; height: 34px; border: 2px solid #6b5418; border-radius: 5px 5px 50% 50%; background: #e2bf5a; }
+  .scale { display: flex; justify-content: space-between; background: linear-gradient(180deg, #f3dc8f, #c9a64a); border: 2px solid #8a6d22; border-radius: 4px; padding: 3px 8px; font-size: 13px; font-weight: 700; }
+  .lead { text-align: center; color: #f3dc8f; font-size: 15px; margin: 2px 0 12px; min-height: 18px; }
+  .foot { display: flex; gap: 10px; }
+  .foot button { flex: 1; border: 2px solid #8a6d22; border-radius: 10px; padding: 12px; font: 700 16px Georgia, serif; color: #2a1a0e; background: linear-gradient(180deg, #f3dc8f, #c9a64a); }
+</style>
+</head>
+<body>
+<div class="board">
+  <div class="player" id="pl0"></div>
+  <div class="lead" id="lead"></div>
+  <div class="player" id="pl1"></div>
+  <div class="foot"><button id="resetScores">New frame (scores to 0)</button><button id="resetAll">Reset all</button></div>
+</div>
+<script>
+  const MAX = 160;
+  let S;
+  try { S = JSON.parse(localStorage.getItem("board")) || null; } catch (e) { S = null; }
+  if (!S) S = { names: ["Player 1", "Player 2"], score: [0, 0], frames: [0, 0] };
+  const save = () => { try { localStorage.setItem("board", JSON.stringify(S)); } catch (e) {} };
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function build(i) {
+    document.getElementById("pl" + i).innerHTML = `
+      <div class="top">
+        <input class="name" id="n${i}" value="${esc(S.names[i])}" />
+        <div class="frames"><small>FRAMES</small><button class="mini" data-f="${i}" data-d="-1">−</button><span id="f${i}">${S.frames[i]}</span><button class="mini" data-f="${i}" data-d="1">+</button></div>
+      </div>
+      <div class="row">
+        <button class="pm" data-p="${i}" data-d="-1">−</button>
+        <div class="big" id="s${i}">${S.score[i]}</div>
+        <button class="pm" data-p="${i}" data-d="1">+</button>
+      </div>
+      <div class="rail"><input type="range" id="r${i}" min="0" max="${MAX}" value="${S.score[i]}" />
+        <div class="scale"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span><span>120</span><span>140</span><span>160</span></div></div>`;
+    document.getElementById("n" + i).oninput = (e) => { S.names[i] = e.target.value; save(); };
+    document.getElementById("r" + i).oninput = (e) => { S.score[i] = +e.target.value; render(); };
+  }
+  function render() {
+    for (const i of [0, 1]) {
+      document.getElementById("s" + i).textContent = S.score[i];
+      document.getElementById("r" + i).value = S.score[i];
+      document.getElementById("f" + i).textContent = S.frames[i];
+    }
+    const d = S.score[0] - S.score[1];
+    document.getElementById("lead").textContent = d === 0 ? "Level" : `${S.names[d > 0 ? 0 : 1] || "Player"} leads by ${Math.abs(d)}`;
+    save();
+  }
+  build(0); build(1);
+  document.body.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.p !== undefined) { const i = +b.dataset.p; S.score[i] = Math.max(0, Math.min(MAX, S.score[i] + +b.dataset.d)); render(); }
+    if (b.dataset.f !== undefined) { const i = +b.dataset.f; S.frames[i] = Math.max(0, S.frames[i] + +b.dataset.d); render(); }
+  });
+  document.getElementById("resetScores").onclick = () => { if (confirm("Set both scores to 0?")) { S.score = [0, 0]; render(); } };
+  document.getElementById("resetAll").onclick = () => { if (confirm("Reset scores and frames?")) { S.score = [0, 0]; S.frames = [0, 0]; render(); } };
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Matchmaker" />
+<meta name="theme-color" content="#0f172a" />
+<link rel="apple-touch-icon" href="icon-matchmaker.png" />
+<title>Matchmaker</title>
+<style>
+  :root { --bg: #0f172a; --card: #1e293b; --ink: #f1f5f9; --muted: #94a3b8; --acc: #f97316; --acc2: #22c55e; --line: #334155; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { margin: 6px 0 4px; font-size: 28px; }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  label { display: block; font-weight: 600; margin-bottom: 8px; }
+  textarea { width: 100%; min-height: 150px; resize: vertical; border-radius: 12px; border: 1px solid var(--line); background: #0b1220; color: var(--ink); padding: 12px; font-size: 16px; line-height: 1.4; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .seg { display: inline-flex; background: #0b1220; border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+  .seg button { border: 0; background: transparent; color: var(--muted); padding: 8px 14px; border-radius: 9px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .seg button.on { background: var(--acc); color: #fff; }
+  input[type=number] { width: 70px; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: #0b1220; color: var(--ink); font-size: 16px; }
+  .btn { border: 0; border-radius: 12px; padding: 12px 18px; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .go { background: var(--acc); color: #fff; flex: 1; min-width: 160px; }
+  .ghost { background: #0b1220; color: var(--ink); border: 1px solid var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .grp { background: #0b1220; border: 1px solid var(--line); border-radius: 12px; padding: 12px; animation: pop .35s ease both; }
+  .grp h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--acc); }
+  .grp ul { list-style: none; margin: 0; padding: 0; }
+  .grp li { padding: 6px 0; border-top: 1px dashed var(--line); font-size: 17px; }
+  .grp li:first-child { border-top: 0; }
+  .grp.bye { border-style: dashed; border-color: #64748b; }
+  .grp.bye h3 { color: #94a3b8; }
+  .vs { color: var(--muted); font-size: 13px; text-align: center; margin: 2px 0; }
+  .note { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+  .err { color: #fca5a5; font-size: 14px; margin-top: 8px; min-height: 18px; }
+  .count { color: var(--acc2); font-weight: 700; }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--acc2); color: #04210f; padding: 10px 16px; border-radius: 10px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎲 Matchmaker</h1>
+  <p class="sub">Type the usernames, pick pairs or teams, and shuffle.</p>
+
+  <div class="card">
+    <label for="names">Usernames <span id="count" class="count"></span></label>
+    <textarea id="names" placeholder="One per line (or separated by commas)&#10;alex&#10;priya&#10;sam&#10;rahul"></textarea>
+    <div class="hint">Duplicates and empty lines are ignored. If the numbers don&rsquo;t divide evenly, the extras get a bye. Your list is saved on this device.</div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="seg" role="tablist">
+        <button id="mPairs" class="on">Pairs</button>
+        <button id="mTeams">Teams</button>
+      </div>
+      <span id="teamOpt" style="display:none">
+        <input id="teams" type="number" min="2" value="2" /> teams
+      </span>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="go" class="btn go">Match!</button>
+      <button id="copy" class="btn ghost">Copy</button>
+      <button id="clear" class="btn ghost">Clear</button>
+      <button id="resetBye" class="btn ghost">Reset byes</button>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div id="out" class="grid"></div>
+  <p id="note" class="note"></p>
+</div>
+<div id="toast">Copied!</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let mode = "pairs", last = [];
+
+  const names = () => {
+    const seen = new Set(), out = [];
+    $("names").value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean).forEach((n) => {
+      const k = n.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(n); }
+    });
+    return out;
+  };
+  const rnd = (n) => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
+  const shuffle = (arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  // ---- bye system: extras sit out; whoever has had the fewest byes so far is picked first (ties random)
+  const loadByes = () => { try { return JSON.parse(localStorage.getItem("mm-byes") || "{}"); } catch (e) { return {}; } };
+  const saveByes = (b) => { try { localStorage.setItem("mm-byes", JSON.stringify(b)); } catch (e) {} };
+  function pickByes(list, n) {
+    if (n <= 0) return { byes: [], rest: list };
+    const b = loadByes(), order = shuffle(list).sort((x, y) => (b[x.toLowerCase()] || 0) - (b[y.toLowerCase()] || 0));
+    const byes = order.slice(0, n); byes.forEach((x) => (b[x.toLowerCase()] = (b[x.toLowerCase()] || 0) + 1)); saveByes(b);
+    return { byes, rest: list.filter((x) => !byes.includes(x)) };
+  }
+  function match() {
+    const list = names(); $("err").textContent = ""; $("note").textContent = "";
+    let size, label, groupsN;
+    if (mode === "pairs") { if (list.length < 2) return fail("Add at least 2 usernames."); size = 2; label = "Pair"; groupsN = Math.floor(list.length / 2); }
+    else {
+      groupsN = Math.max(2, parseInt($("teams").value, 10) || 2);
+      if (list.length < groupsN) return fail(`Need at least ${groupsN} usernames for ${groupsN} teams.`);
+      size = Math.floor(list.length / groupsN); label = "Team";
+    }
+    const { byes, rest } = pickByes(list, list.length - groupsN * size);
+    const s = shuffle(rest), groups = [];
+    for (let i = 0; i < groupsN; i++) groups.push(s.slice(i * size, (i + 1) * size));
+    render(groups, label, byes);
+    if (byes.length) $("note").textContent = `${byes.length === 1 ? "1 person gets" : byes.length + " people get"} a bye this round. Byes rotate: whoever has had the fewest goes first.`;
+  }
+  function fail(msg) { $("err").textContent = msg; $("out").innerHTML = ""; last = []; }
+  function render(groups, label, byes = []) {
+    last = groups.map((g, i) => ({ title: `${label} ${i + 1}`, members: g }));
+    if (byes.length) last.push({ title: "Bye", members: byes, bye: true });
+    $("out").innerHTML = last.map((g, i) => `
+      <div class="grp${g.bye ? " bye" : ""}" style="animation-delay:${i * 0.05}s"><h3>${g.bye ? "🛋️ Bye (sits out)" : g.title}</h3><ul>${
+        g.members.map((m, j) => (!g.bye && label === "Pair" && j === 1 && g.members.length === 2 ? '<div class="vs">&</div>' : "") + `<li>${esc(m)}</li>`).join("")
+      }</ul></div>`).join("");
+    $("go").textContent = "Reshuffle 🔀";
+  }
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function setMode(m) {
+    mode = m; $("mPairs").classList.toggle("on", m === "pairs"); $("mTeams").classList.toggle("on", m === "teams");
+    $("teamOpt").style.display = m === "teams" ? "inline" : "none"; $("go").textContent = "Match!"; $("out").innerHTML = ""; $("note").textContent = ""; last = [];
+  }
+  function updateCount() { const n = names().length; $("count").textContent = n ? `(${n})` : ""; try { localStorage.setItem("mm-names", $("names").value); } catch (e) {} }
+
+  $("mPairs").onclick = () => setMode("pairs");
+  $("mTeams").onclick = () => setMode("teams");
+  $("go").onclick = match;
+  $("names").oninput = updateCount;
+  $("clear").onclick = () => { $("names").value = ""; updateCount(); setMode(mode); };
+  $("resetBye").onclick = () => { saveByes({}); $("toast").textContent = "Bye history reset"; $("toast").style.opacity = 1; setTimeout(() => { $("toast").style.opacity = 0; $("toast").textContent = "Copied!"; }, 1200); };
+  $("copy").onclick = async () => {
+    if (!last.length) return fail("Match first, then copy.");
+    const txt = last.map((g) => `${g.title}: ${g.members.join(", ")}`).join("\n");
+    try { await navigator.clipboard.writeText(txt); } catch (e) { const t = document.createElement("textarea"); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    $("toast").style.opacity = 1; setTimeout(() => ($("toast").style.opacity = 0), 1200);
+  };
+  try { $("names").value = localStorage.getItem("mm-names") || ""; } catch (e) {}
+  updateCount();
+</script>
+</body>
+</html>

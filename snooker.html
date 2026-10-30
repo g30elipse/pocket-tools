@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Snooker" />
+<meta name="theme-color" content="#0b3d2a" />
+<link rel="apple-touch-icon" href="icon-snooker.png" />
+<title>Snooker Scorer</title>
+<style>
+  :root { --bg: #0b3d2a; --felt: #0f5a3c; --card: #0a2e20; --ink: #f4f1e8; --muted: #a9c5b6; --gold: #f2c14e; --line: #1d6b4a; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: radial-gradient(ellipse at top, var(--felt), var(--bg)); color: var(--ink); min-height: 100vh; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 14px 12px 40px; }
+  header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+  .match { color: var(--muted); font-size: 14px; }
+  .players { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .p { background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 12px; text-align: center; transition: border-color .2s, box-shadow .2s; }
+  .p.on { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242,193,78,.25); }
+  .p input { width: 100%; background: transparent; border: 0; color: var(--ink); text-align: center; font-size: 17px; font-weight: 700; outline: none; }
+  .score { font-size: 56px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .brk { color: var(--gold); font-weight: 700; font-size: 15px; min-height: 20px; }
+  .info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+  .info div { background: var(--card); border-radius: 12px; padding: 8px; text-align: center; font-size: 12px; color: var(--muted); }
+  .info b { display: block; color: var(--ink); font-size: 20px; }
+  .alert { text-align: center; color: #ffb4a6; font-weight: 700; min-height: 22px; margin-bottom: 6px; }
+  .balls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 6px 0 12px; }
+  .ball { aspect-ratio: 1; border-radius: 50%; border: 0; font-size: 22px; font-weight: 800; cursor: pointer; box-shadow: inset -6px -8px 14px rgba(0,0,0,.35), 0 4px 10px rgba(0,0,0,.35); }
+  .ball:disabled { opacity: .22; box-shadow: none; }
+  .ball:active:not(:disabled) { transform: scale(.94); }
+  .red { background: #c8102e; color: #fff; } .yellow { background: #f6d32d; color: #222; } .green { background: #1f8f4e; color: #fff; }
+  .brown { background: #7a4a24; color: #fff; } .blue { background: #1f5fd1; color: #fff; } .pink { background: #f49ac1; color: #222; } .black { background: #111; color: #fff; }
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .btn { border: 0; border-radius: 12px; padding: 14px 8px; font-size: 15px; font-weight: 700; cursor: pointer; background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+  .btn.warn { background: #7a1f1f; border-color: #a33; }
+  .btn.gold { background: var(--gold); color: #1d1d1d; border-color: var(--gold); }
+  .fouls { display: none; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+  .fouls.show { display: grid; }
+  .log { background: var(--card); border-radius: 12px; padding: 10px; font-size: 13px; color: var(--muted); max-height: 130px; overflow: auto; }
+  .log div { padding: 2px 0; }
+  .settings { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; margin-top: 10px; flex-wrap: wrap; }
+  select { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px; font-size: 14px; }
+  #banner { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+  #banner.show { display: flex; }
+  #banner .box { background: var(--card); border: 2px solid var(--gold); border-radius: 18px; padding: 24px; max-width: 360px; }
+  #banner h2 { margin: 0 0 6px; color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>🎱 Snooker Scorer</h1><div class="match" id="matchInfo"></div></header>
+
+  <div class="players">
+    <div class="p" id="p0"><input id="n0" value="Player 1" /><div class="score" id="s0">0</div><div class="meta">Frames <b id="f0">0</b> · HB <span id="hb0">0</span></div><div class="brk" id="b0"></div></div>
+    <div class="p" id="p1"><input id="n1" value="Player 2" /><div class="score" id="s1">0</div><div class="meta">Frames <b id="f1">0</b> · HB <span id="hb1">0</span></div><div class="brk" id="b1"></div></div>
+  </div>
+
+  <div class="info">
+    <div>Reds left<b id="reds">15</b></div>
+    <div>On the table<b id="remain">147</b></div>
+    <div>Lead<b id="lead">0</b></div>
+  </div>
+  <div class="alert" id="alert"></div>
+
+  <div class="balls">
+    <button class="ball red" data-v="1">1</button>
+    <button class="ball yellow" data-v="2">2</button>
+    <button class="ball green" data-v="3">3</button>
+    <button class="ball brown" data-v="4">4</button>
+    <button class="ball blue" data-v="5">5</button>
+    <button class="ball pink" data-v="6">6</button>
+    <button class="ball black" data-v="7">7</button>
+    <button class="ball" id="freeBall" style="background:#3b4a42;color:#fff;font-size:13px">Free<br/>ball</button>
+  </div>
+
+  <div class="row">
+    <button class="btn gold" id="endTurn">Miss / Safety</button>
+    <button class="btn warn" id="foulBtn">Foul…</button>
+    <button class="btn" id="undo">↶ Undo</button>
+  </div>
+  <div class="fouls" id="fouls">
+    <button class="btn warn" data-f="4">Foul 4</button><button class="btn warn" data-f="5">Foul 5</button>
+    <button class="btn warn" data-f="6">Foul 6</button><button class="btn warn" data-f="7">Foul 7</button>
+  </div>
+  <div class="row">
+    <button class="btn" id="redOff">Red off table</button>
+    <button class="btn" id="concede">End frame</button>
+    <button class="btn" id="newMatch">New match</button>
+  </div>
+
+  <div class="log" id="log"></div>
+  <div class="settings">Best of <select id="bestOf"><option>1</option><option>3</option><option selected>5</option><option>7</option><option>9</option><option>11</option></select>
+    · Reds <select id="redsSel"><option>6</option><option>10</option><option selected>15</option></select> (applies to next frame)</div>
+</div>
+<div id="banner"><div class="box"><h2 id="banTitle"></h2><div id="banText"></div><br/><button class="btn gold" id="banOk">Next frame</button></div></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const NAMES = ["", "Red", "Yellow", "Green", "Brown", "Blue", "Pink", "Black"];
+let S, hist = [];
+function fresh(keep) {
+  const reds = +($("redsSel")?.value || 15);
+  return {
+    names: keep ? keep.names : ["Player 1", "Player 2"], frames: keep ? keep.frames : [0, 0], hb: keep ? keep.hb : [0, 0],
+    bestOf: keep ? keep.bestOf : 5, score: [0, 0], turn: keep ? (keep.starter ^ 1) : 0, starter: keep ? (keep.starter ^ 1) : 0,
+    reds, onColour: false, next: null /* next colour in the clearance, 2..7 */, brk: 0, freeBall: false, log: [], over: false,
+  };
+}
+const save = () => { try { localStorage.setItem("snk", JSON.stringify(S)); } catch (e) {} };
+const push = () => { hist.push(JSON.stringify(S)); if (hist.length > 200) hist.shift(); };
+const opp = () => S.turn ^ 1;
+const nm = (i) => S.names[i] || `Player ${i + 1}`;
+const remaining = () => {
+  if (S.next) { let r = 0; for (let c = S.next; c <= 7; c++) r += c; return r; }
+  return S.reds * 8 + 27 + (S.onColour ? 7 : 0);
+};
+const log = (t) => { S.log.unshift(t); S.log = S.log.slice(0, 60); };
+function endVisit() {
+  if (S.brk > S.hb[S.turn]) S.hb[S.turn] = S.brk;
+  if (S.brk >= 10) log(`${nm(S.turn)} break of ${S.brk}`);
+  S.brk = 0; S.freeBall = false;
+  if (S.reds === 0 && !S.next) S.next = 2;   // last red gone and the colour chance is over → clearance from yellow
+  S.onColour = false;
+}
+function pot(v) {
+  push(); const p = S.turn;
+  if (S.freeBall) { // free ball counts as a red (or as the lowest colour in the clearance)
+    const val = S.next ? S.next : 1; S.score[p] += val; S.brk += val; log(`${nm(p)} free ball (${val})`); S.freeBall = false;
+    if (!S.next) S.onColour = true; return render();
+  }
+  if (v === 1) { S.reds--; S.score[p] += 1; S.brk += 1; S.onColour = true; }
+  else if (S.onColour) { S.score[p] += v; S.brk += v; S.onColour = false; if (S.reds === 0) S.next = 2; }
+  else if (S.next === v) {
+    S.score[p] += v; S.brk += v; S.next = v === 7 ? null : v + 1;
+    if (v === 7) return finishFrame();
+  }
+  render();
+}
+function finishFrame() {
+  if (S.brk > S.hb[S.turn]) S.hb[S.turn] = S.brk;
+  if (S.score[0] === S.score[1]) { S.next = 7; S.brk = 0; S.respot = true; log("Scores level: black re-spotted"); return render(); }
+  const w = S.score[0] > S.score[1] ? 0 : 1; S.frames[w]++; S.over = true;
+  log(`Frame to ${nm(w)} ${S.score[w]}–${S.score[w ^ 1]}`);
+  const need = Math.ceil(S.bestOf / 2), won = S.frames[w] >= need;
+  $("banTitle").textContent = won ? `🏆 ${nm(w)} wins the match!` : `Frame to ${nm(w)}`;
+  $("banText").textContent = `${S.score[w]}–${S.score[w ^ 1]} · Frames ${S.frames[0]}–${S.frames[1]}`;
+  $("banOk").textContent = won ? "New match" : "Next frame";
+  $("banner").classList.add("show"); $("banner").dataset.won = won ? "1" : ""; render();
+}
+function foul(n) {
+  push(); const p = S.turn, pen = Math.max(4, n);
+  S.score[opp()] += pen; log(`Foul by ${nm(p)}: ${pen} to ${nm(opp())}`);
+  endVisit(); S.turn = opp(); $("fouls").classList.remove("show");
+  if (S.respot) { S.turn = p; return finishFrame(); }
+  if (confirm(`${nm(S.turn)}: snookered after the foul? (OK = free ball)`)) S.freeBall = true;
+  render();
+}
+function render() {
+  for (const i of [0, 1]) {
+    $("s" + i).textContent = S.score[i]; $("f" + i).textContent = S.frames[i]; $("hb" + i).textContent = S.hb[i];
+    $("p" + i).classList.toggle("on", S.turn === i); if (document.activeElement !== $("n" + i)) $("n" + i).value = nm(i);
+    $("b" + i).textContent = S.turn === i && S.brk ? `Break ${S.brk}` : "";
+  }
+  const rem = remaining(), lead = Math.abs(S.score[0] - S.score[1]);
+  $("reds").textContent = S.reds; $("remain").textContent = rem; $("lead").textContent = lead;
+  $("matchInfo").textContent = `Best of ${S.bestOf} · first to ${Math.ceil(S.bestOf / 2)}`;
+  const behind = S.score[0] === S.score[1] ? null : (S.score[0] < S.score[1] ? 0 : 1);
+  let a = "";
+  if (S.respot && S.next === 7) a = "Scores level: black re-spotted, next pot wins";
+  else if (S.freeBall) a = `Free ball for ${nm(S.turn)}: tap "Free ball" if potted`;
+  else if (behind !== null && lead > rem) a = `${nm(behind)} needs snookers (${lead} behind, only ${rem} left)`;
+  else if (S.next) a = `Clearance: on the ${NAMES[S.next].toLowerCase()}`;
+  else if (S.onColour) a = `${nm(S.turn)} on a colour`;
+  $("alert").textContent = a;
+  document.querySelectorAll(".ball[data-v]").forEach((b) => {
+    const v = +b.dataset.v;
+    b.disabled = S.over || S.freeBall || (v === 1 ? !(S.reds > 0 && !S.onColour && !S.next) : !(S.onColour || S.next === v));
+  });
+  $("freeBall").disabled = !S.freeBall || S.over;
+  $("redOff").disabled = S.reds === 0;
+  $("log").innerHTML = S.log.map((l) => `<div>${l.replace(/</g, "&lt;")}</div>`).join("") || "<div>Tap a ball when it's potted. Miss/Safety ends the visit.</div>";
+  $("bestOf").value = S.bestOf; save();
+}
+document.querySelectorAll(".ball[data-v]").forEach((b) => (b.onclick = () => pot(+b.dataset.v)));
+$("freeBall").onclick = () => pot(0);
+$("endTurn").onclick = () => { push(); endVisit(); S.turn = opp(); render(); };
+$("foulBtn").onclick = () => $("fouls").classList.toggle("show");
+document.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => foul(+b.dataset.f)));
+$("undo").onclick = () => { if (!hist.length) return; S = JSON.parse(hist.pop()); $("banner").classList.remove("show"); render(); };
+$("redOff").onclick = () => { if (S.reds > 0) { push(); S.reds--; log("Red off the table (not scored)"); if (S.reds === 0 && !S.onColour) S.next = 2; render(); } };
+$("concede").onclick = () => { if (confirm("End this frame now (concession)? Higher score takes it.")) { push(); if (S.score[0] === S.score[1]) { alert("Scores are level: play on."); hist.pop(); return; } finishFrame(); } };
+$("newMatch").onclick = () => { if (confirm("Start a new match? Scores and frames reset.")) { push(); const names = S.names; S = fresh(); S.names = names; S.bestOf = +$("bestOf").value; render(); } };
+$("banOk").onclick = () => { $("banner").classList.remove("show"); push();
+  if ($("banner").dataset.won) { const names = S.names, bo = S.bestOf; S = fresh(); S.names = names; S.bestOf = bo; } else S = fresh(S); render(); };
+$("bestOf").onchange = () => { S.bestOf = +$("bestOf").value; render(); };
+for (const i of [0, 1]) $("n" + i).oninput = (e) => { S.names[i] = e.target.value; save(); };
+try { S = JSON.parse(localStorage.getItem("snk")) || fresh(); } catch (e) { S = fresh(); }
+render();
+</script>
+</body>
+</html>
