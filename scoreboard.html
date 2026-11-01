@@ -30,7 +30,10 @@
   .big { flex: 1; text-align: center; font: 700 76px/1 Georgia, serif; color: #f6e2a0; text-shadow: 0 3px 0 #2a1209, 0 0 18px rgba(246,226,160,.25); font-variant-numeric: tabular-nums; }
   .pm { width: 74px; height: 74px; border-radius: 50%; border: 3px solid #8a6d22; font: 700 44px/1 Georgia, serif; color: #2a1a0e; padding: 0;
         background: radial-gradient(circle at 35% 30%, #fff1b8, #d9b24f 55%, #9c7a24); box-shadow: 0 4px 0 #5a4210, 0 6px 12px rgba(0,0,0,.4); }
-  .pm:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a4210; }
+  .pm:active, .p3:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a4210; }
+  .side { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .p3 { width: 74px; height: 44px; border-radius: 22px; border: 3px solid #8a6d22; font: 700 22px/1 Georgia, serif; color: #2a1a0e; padding: 0;
+        background: radial-gradient(circle at 35% 30%, #fff1b8, #d9b24f 55%, #9c7a24); box-shadow: 0 3px 0 #5a4210, 0 5px 10px rgba(0,0,0,.4); }
   .rail { margin-top: 16px; position: relative; }
   input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 34px; background: transparent; }
   input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: linear-gradient(180deg, #fff3c4, #c9a64a 60%, #8a6d22); border: 1px solid #6b5418; }
@@ -66,9 +69,9 @@
         <div class="frames"><small>FRAMES</small><button class="mini" data-f="${i}" data-d="-1">−</button><span id="f${i}">${S.frames[i]}</span><button class="mini" data-f="${i}" data-d="1">+</button></div>
       </div>
       <div class="row">
-        <button class="pm" data-p="${i}" data-d="-1">−</button>
+        <div class="side"><button class="pm" data-p="${i}" data-d="-1">−</button><button class="p3" data-p="${i}" data-d="-3">−3</button></div>
         <div class="big" id="s${i}">${S.score[i]}</div>
-        <button class="pm" data-p="${i}" data-d="1">+</button>
+        <div class="side"><button class="pm" data-p="${i}" data-d="1">+</button><button class="p3" data-p="${i}" data-d="3">+3</button></div>
       </div>
       <div class="rail"><input type="range" id="r${i}" min="0" max="${MAX}" value="${S.score[i]}" />
         <div class="scale"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span><span>120</span><span>140</span><span>160</span></div></div>`;
@@ -85,9 +88,19 @@
     document.getElementById("lead").textContent = d === 0 ? "Level" : `${S.names[d > 0 ? 0 : 1] || "Player"} leads by ${Math.abs(d)}`;
     save();
   }
+  // haptic tick: Android uses vibrate; iOS 18+ Safari gives a tick when a hidden <input switch> is toggled from a tap
+  function haptic() {
+    try {
+      if (navigator.vibrate && navigator.vibrate(12)) return;
+      const l = document.createElement("label"), c = document.createElement("input");
+      l.ariaHidden = "true"; l.style.display = "none"; c.type = "checkbox"; c.setAttribute("switch", "");
+      l.appendChild(c); document.head.appendChild(l); l.click(); l.remove();
+    } catch (e) {}
+  }
   build(0); build(1);
   document.body.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
+    haptic();
     if (b.dataset.p !== undefined) { const i = +b.dataset.p; S.score[i] = Math.max(0, Math.min(MAX, S.score[i] + +b.dataset.d)); render(); }
     if (b.dataset.f !== undefined) { const i = +b.dataset.f; S.frames[i] = Math.max(0, S.frames[i] + +b.dataset.d); render(); }
   });
