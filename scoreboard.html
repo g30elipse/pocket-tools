@@ -11,7 +11,7 @@
 <title>Score Board</title>
 <style>
   html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
-  button, input, textarea, select { touch-action: manipulation; }
+  *, *::before, *::after { touch-action: manipulation; }
   button { -webkit-user-select: none; user-select: none; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; min-height: 100vh; font-family: Georgia, "Times New Roman", serif; color: #2a1a0e;
@@ -99,7 +99,10 @@
   // no zoom: block pinch + double-tap zoom (iOS ignores user-scalable=no on its own)
   ["gesturestart", "gesturechange", "gestureend"].forEach((e) => document.addEventListener(e, (ev) => ev.preventDefault(), { passive: false }));
   let lastTouch = 0;
-  document.addEventListener("touchend", (ev) => { const now = Date.now(); if (now - lastTouch < 350 && !ev.target.closest("input, textarea, select")) { ev.preventDefault(); ev.target.closest("button")?.click(); } lastTouch = now; }, { passive: false });
+  // only text fields keep native double-tap (cursor/selection); sliders, buttons and gaps never zoom
+  const isText = (el) => el.closest("textarea, select, input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=button])");
+  document.addEventListener("touchend", (ev) => { const now = Date.now(); if (now - lastTouch < 350 && !isText(ev.target)) { ev.preventDefault(); ev.target.closest("button")?.click(); } lastTouch = now; }, { passive: false });
+  document.addEventListener("dblclick", (ev) => ev.preventDefault(), { passive: false });
   document.addEventListener("touchmove", (ev) => { if (ev.touches.length > 1) ev.preventDefault(); }, { passive: false });
 </script>
 </body>
