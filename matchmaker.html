@@ -44,13 +44,36 @@
   .err { color: #fca5a5; font-size: 14px; margin-top: 8px; min-height: 18px; }
   .count { color: var(--acc2); font-weight: 700; }
   @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+  .lg-tbl { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .lg-tbl th { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 6px 4px; text-align: center; white-space: nowrap; }
+  .lg-tbl td { padding: 8px 4px; border-top: 1px solid var(--line); text-align: center; }
+  .lg-tbl th:nth-child(2), .lg-tbl td:nth-child(2) { text-align: left; width: 100%; }
+  .lg-tbl td.pts { font-weight: 800; color: var(--acc); }
+  .lg-tbl tr.top td { background: rgba(249,115,22,.08); }
+  .lg-tbl .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; display: block; }
+  .lg-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .lg-head h2 { margin: 0; font-size: 18px; }
+  .lg-prog { color: var(--muted); font-size: 13px; }
+  .champ { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(34,197,94,.12); color: #86efac; font-weight: 700; }
+  .rnd { background: #0b1220; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .rnd h3 { margin: 0 0 6px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--acc); }
+  .fx { display: grid; grid-template-columns: 1fr 52px 10px 52px 1fr; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--line); }
+  .fx:first-of-type { border-top: 0; }
+  .fx .h { text-align: right; } .fx .a { text-align: left; }
+  .fx .h, .fx .a { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx .win { color: var(--acc2); font-weight: 700; }
+  .fx input { width: 52px; height: 44px; text-align: center; padding: 0; font-size: 18px; font-weight: 700; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .fx .dash { color: var(--muted); text-align: center; }
+  .rnd .byeln { color: var(--muted); font-size: 14px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  select { padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: #0b1220; color: var(--ink); font-size: 16px; }
+  #leagueOpt input[type=number] { width: 56px; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--acc2); color: #04210f; padding: 10px 16px; border-radius: 10px; font-weight: 700; opacity: 0; transition: opacity .2s; pointer-events: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🎲 Matchmaker</h1>
-  <p class="sub">Type the usernames, pick pairs or teams, and shuffle.</p>
+  <p class="sub">Type the usernames, then pick pairs, teams, or run a league.</p>
 
   <div class="card">
     <label for="names">Usernames <span id="count" class="count"></span></label>
@@ -63,10 +86,16 @@
       <div class="seg" role="tablist">
         <button id="mPairs" class="on">Pairs</button>
         <button id="mTeams">Teams</button>
+        <button id="mLeague">League</button>
       </div>
       <span id="teamOpt" style="display:none">
         <input id="teams" type="number" min="2" value="2" /> teams
       </span>
+    </div>
+    <div id="leagueOpt" class="row" style="display:none;margin-top:12px">
+      <select id="legs"><option value="1">Play each other once</option><option value="2">Home &amp; away (twice)</option></select>
+      <span>Win <input id="pWin" type="number" min="0" value="3" /></span>
+      <span>Draw <input id="pDraw" type="number" min="0" value="1" /></span>
     </div>
     <div class="row" style="margin-top:12px">
       <button id="go" class="btn go">Match!</button>
@@ -78,6 +107,7 @@
   </div>
 
   <div id="out" class="grid"></div>
+  <div id="league"></div>
   <p id="note" class="note"></p>
 </div>
 <div id="toast">Copied!</div>
@@ -132,26 +162,127 @@
   }
   const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+  // ---- league: round robin (circle method), score entry, live standings
+  let league = null;
+  const loadLeague = () => { try { return JSON.parse(localStorage.getItem("mm-league") || "null"); } catch (e) { return null; } };
+  const saveLeague = () => { try { localStorage.setItem("mm-league", JSON.stringify(league)); } catch (e) {} };
+  function makeRounds(list, legs) {
+    const arr = shuffle(list); if (arr.length % 2) arr.push(null);
+    const n = arr.length, first = [];
+    let a = arr.slice();
+    for (let r = 0; r < n - 1; r++) {
+      const rd = [];
+      for (let i = 0; i < n / 2; i++) {
+        let h = a[i], w = a[n - 1 - i];
+        if ((i === 0 && r % 2) || (i > 0 && i % 2)) [h, w] = [w, h];
+        if (h === null || w === null) rd.push({ bye: h === null ? w : h });
+        else rd.push({ h, a: w, sh: "", sa: "" });
+      }
+      rd.sort((x, y) => (x.bye ? 1 : 0) - (y.bye ? 1 : 0));
+      first.push(rd);
+      a = [a[0], a[n - 1], ...a.slice(1, n - 1)];
+    }
+    const rounds = shuffle(first);
+    if (legs === 2) rounds.push(...rounds.map((rd) => rd.map((m) => (m.bye ? { bye: m.bye } : { h: m.a, a: m.h, sh: "", sa: "" }))));
+    return rounds;
+  }
+  function createLeague() {
+    const list = names(); $("err").textContent = "";
+    if (list.length < 2) return fail("Add at least 2 names for a league.");
+    if (league && !confirm("Start a new league? The current fixtures and scores will be wiped.")) return;
+    const legs = parseInt($("legs").value, 10) === 2 ? 2 : 1;
+    const win = Math.max(0, parseInt($("pWin").value, 10) || 0), draw = Math.max(0, parseInt($("pDraw").value, 10) || 0);
+    league = { entries: list, legs, win, draw, rounds: makeRounds(list, legs) };
+    saveLeague(); renderLeague();
+  }
+  const played = (m) => !m.bye && m.sh !== "" && m.sa !== "";
+  function standings() {
+    const t = {};
+    league.entries.forEach((e) => (t[e] = { name: e, p: 0, w: 0, d: 0, l: 0, f: 0, a: 0, pts: 0 }));
+    league.rounds.flat().filter(played).forEach((m) => {
+      const H = t[m.h], A = t[m.a], x = +m.sh, y = +m.sa;
+      H.p++; A.p++; H.f += x; H.a += y; A.f += y; A.a += x;
+      if (x > y) { H.w++; A.l++; H.pts += league.win; } else if (x < y) { A.w++; H.l++; A.pts += league.win; } else { H.d++; A.d++; H.pts += league.draw; A.pts += league.draw; }
+    });
+    return Object.values(t).sort((p, q) => q.pts - p.pts || (q.f - q.a) - (p.f - p.a) || q.f - p.f || q.w - p.w || p.name.localeCompare(q.name));
+  }
+  function renderTable() {
+    const rows = standings(), all = league.rounds.flat().filter((m) => !m.bye), done = all.filter(played).length;
+    const sd = (r) => (r.f - r.a > 0 ? "+" : "") + (r.f - r.a);
+    let champ = "";
+    if (done === all.length && all.length) {
+      const top = rows.filter((r) => r.pts === rows[0].pts && r.f - r.a === rows[0].f - rows[0].a && r.f === rows[0].f && r.w === rows[0].w);
+      champ = `<div class="champ">🏆 ${top.length > 1 ? "Tied at the top: " + top.map((r) => esc(r.name)).join(" & ") : "Champion: " + esc(rows[0].name)}</div>`;
+    }
+    $("lgTable").innerHTML = `<div class="lg-head"><h2>🏆 Table</h2><span class="lg-prog">${done}/${all.length} played · W${league.win} D${league.draw} L0</span></div>
+      <table class="lg-tbl"><tr><th>#</th><th>Name</th><th>P</th><th>W</th><th>D</th><th>L</th><th>+/−</th><th>Pts</th></tr>${
+        rows.map((r, i) => `<tr class="${i === 0 && done ? "top" : ""}"><td>${i + 1}</td><td><span class="nm">${esc(r.name)}</span></td><td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${sd(r)}</td><td class="pts">${r.pts}</td></tr>`).join("")
+      }</table>${champ}`;
+    league.rounds.forEach((rd, ri) => rd.forEach((m, mi) => {
+      if (m.bye) return;
+      const hs = document.querySelector(`[data-n="${ri}-${mi}"] .h`), as = document.querySelector(`[data-n="${ri}-${mi}"] .a`);
+      if (!hs) return;
+      hs.classList.toggle("win", played(m) && +m.sh > +m.sa); as.classList.toggle("win", played(m) && +m.sa > +m.sh);
+    }));
+  }
+  function renderLeague() {
+    if (!league) { $("league").innerHTML = ""; return; }
+    const half = league.rounds.length / league.legs;
+    $("league").innerHTML = `<div class="card" id="lgTable"></div>` + league.rounds.map((rd, ri) => `
+      <div class="rnd"><h3>Round ${ri + 1}${league.legs === 2 ? (ri < half ? " · 1st leg" : " · 2nd leg") : ""}</h3>${
+        rd.map((m, mi) => m.bye ? `<div class="byeln">🛋️ Bye: ${esc(m.bye)}</div>` :
+          `<div class="fx" data-n="${ri}-${mi}"><span class="h">${esc(m.h)}</span><input inputmode="numeric" pattern="[0-9]*" data-k="sh" value="${m.sh}" aria-label="${esc(m.h)} score" /><span class="dash">–</span><input inputmode="numeric" pattern="[0-9]*" data-k="sa" value="${m.sa}" aria-label="${esc(m.a)} score" /><span class="a">${esc(m.a)}</span></div>`).join("")
+      }</div>`).join("") + `<div class="row"><button id="lgNew" class="btn ghost">New league</button></div>`;
+    $("league").querySelectorAll(".fx input").forEach((inp) => {
+      inp.oninput = () => {
+        const v = inp.value.replace(/\D/g, "").slice(0, 4); if (v !== inp.value) inp.value = v;
+        const [ri, mi] = inp.parentElement.dataset.n.split("-").map(Number);
+        league.rounds[ri][mi][inp.dataset.k] = v; saveLeague(); renderTable();
+      };
+    });
+    $("lgNew").onclick = () => { if (!confirm("Delete this league and all its scores?")) return; league = null; saveLeague(); renderLeague(); $("go").textContent = "Create league"; };
+    $("go").textContent = "New league 🔀";
+    renderTable();
+  }
+  function leagueText() {
+    const rows = standings(), lines = ["🏆 League table", ...rows.map((r, i) => `${i + 1}. ${r.name} — ${r.pts} pts (P${r.p} W${r.w} D${r.d} L${r.l}, ${r.f - r.a >= 0 ? "+" : ""}${r.f - r.a})`)];
+    league.rounds.forEach((rd, ri) => {
+      lines.push("", `Round ${ri + 1}`);
+      rd.forEach((m) => lines.push(m.bye ? `Bye: ${m.bye}` : played(m) ? `${m.h} ${m.sh}–${m.sa} ${m.a}` : `${m.h} vs ${m.a}`));
+    });
+    return lines.join("\n");
+  }
+
   function setMode(m) {
-    mode = m; $("mPairs").classList.toggle("on", m === "pairs"); $("mTeams").classList.toggle("on", m === "teams");
-    $("teamOpt").style.display = m === "teams" ? "inline" : "none"; $("go").textContent = "Match!"; $("out").innerHTML = ""; $("note").textContent = ""; last = [];
+    mode = m; $("mPairs").classList.toggle("on", m === "pairs"); $("mTeams").classList.toggle("on", m === "teams"); $("mLeague").classList.toggle("on", m === "league");
+    $("teamOpt").style.display = m === "teams" ? "inline" : "none"; $("leagueOpt").style.display = m === "league" ? "flex" : "none";
+    $("resetBye").style.display = m === "league" ? "none" : "";
+    $("go").textContent = "Match!"; $("out").innerHTML = ""; $("note").textContent = ""; $("err").textContent = ""; last = [];
+    $("league").style.display = m === "league" ? "" : "none";
+    if (m === "league") { $("go").textContent = league ? "New league 🔀" : "Create league"; renderLeague(); }
+    try { localStorage.setItem("mm-mode", m); } catch (e) {}
   }
   function updateCount() { const n = names().length; $("count").textContent = n ? `(${n})` : ""; try { localStorage.setItem("mm-names", $("names").value); } catch (e) {} }
 
   $("mPairs").onclick = () => setMode("pairs");
   $("mTeams").onclick = () => setMode("teams");
-  $("go").onclick = match;
+  $("mLeague").onclick = () => setMode("league");
+  $("go").onclick = () => (mode === "league" ? createLeague() : match());
   $("names").oninput = updateCount;
-  $("clear").onclick = () => { $("names").value = ""; updateCount(); setMode(mode); };
+  $("clear").onclick = () => { $("names").value = ""; updateCount(); if (mode !== "league") setMode(mode); };
   $("resetBye").onclick = () => { saveByes({}); $("toast").textContent = "Bye history reset"; $("toast").style.opacity = 1; setTimeout(() => { $("toast").style.opacity = 0; $("toast").textContent = "Copied!"; }, 1200); };
   $("copy").onclick = async () => {
-    if (!last.length) return fail("Match first, then copy.");
-    const txt = last.map((g) => `${g.title}: ${g.members.join(", ")}`).join("\n");
+    let txt;
+    if (mode === "league") { if (!league) { $("err").textContent = "Create a league first, then copy."; return; } txt = leagueText(); }
+    else { if (!last.length) return fail("Match first, then copy."); txt = last.map((g) => `${g.title}: ${g.members.join(", ")}`).join("\n"); }
     try { await navigator.clipboard.writeText(txt); } catch (e) { const t = document.createElement("textarea"); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
     $("toast").style.opacity = 1; setTimeout(() => ($("toast").style.opacity = 0), 1200);
   };
   try { $("names").value = localStorage.getItem("mm-names") || ""; } catch (e) {}
   updateCount();
+  league = loadLeague();
+  if (league) { $("legs").value = String(league.legs); $("pWin").value = league.win; $("pDraw").value = league.draw; }
+  setMode((() => { try { return localStorage.getItem("mm-mode") || "pairs"; } catch (e) { return "pairs"; } })());
 </script>
 <script>
   // no zoom: block pinch + double-tap zoom (iOS ignores user-scalable=no on its own)
