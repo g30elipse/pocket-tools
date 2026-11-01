@@ -27,7 +27,18 @@
   .frames small { font-size: 11px; letter-spacing: .05em; margin-right: 2px; }
   .mini { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #8a6d22; background: #e8c96a; font: 700 18px Georgia, serif; color: #2a1a0e; padding: 0; line-height: 1; }
   .row { display: flex; align-items: center; gap: 6px; }
-  .big { flex: 1; min-width: 0; text-align: center; font: 700 clamp(44px, 14.5vw, 76px)/1 Georgia, serif; color: #f6e2a0; text-shadow: 0 3px 0 #2a1209, 0 0 18px rgba(246,226,160,.25); font-variant-numeric: tabular-nums; }
+  .big { flex: 1; min-width: 0; display: flex; justify-content: center; font: 700 clamp(44px, 14.5vw, 76px)/1 Georgia, serif; color: #f6e2a0; text-shadow: 0 3px 0 #2a1209, 0 0 18px rgba(246,226,160,.25); font-variant-numeric: tabular-nums; }
+  /* odometer wheels: each digit is a drum of 0-9 twice, rolled with translateY */
+  .dg { position: relative; display: inline-block; width: .62em; height: 1.12em; overflow: hidden; transition: width .35s ease, opacity .3s ease;
+        -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22%, #000 78%, transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 22%, #000 78%, transparent 100%); }
+  .dg.off { width: 0; opacity: 0; }
+  .strip { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-direction: column; will-change: transform;
+           transition: transform .55s cubic-bezier(.22,1.25,.36,1); }
+  .strip.fast { transition-duration: .18s; transition-timing-function: ease-out; }
+  .strip.snap { transition: none; }
+  .strip span { height: 1.12em; line-height: 1.12em; text-align: center; }
+  .big.bump { animation: bump .32s ease; }
+  @keyframes bump { 40% { transform: scale(1.06); } }
   .pm { flex: none; width: clamp(54px, 15vw, 74px); height: clamp(54px, 15vw, 74px); border-radius: 50%; border: 3px solid #8a6d22; font: 700 clamp(22px, 6.5vw, 30px)/1 Georgia, serif; color: #2a1a0e; padding: 0;
         background: radial-gradient(circle at 35% 30%, #fff1b8, #d9b24f 55%, #9c7a24); box-shadow: 0 4px 0 #5a4210, 0 6px 12px rgba(0,0,0,.4); }
   .pm:active, .p3:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a4210; }
@@ -70,18 +81,40 @@
       <div class="row">
         <button class="pm" data-p="${i}" data-d="-1">−1</button>
         <button class="p3" data-p="${i}" data-d="-3">−3</button>
-        <div class="big" id="s${i}">${S.score[i]}</div>
+        <div class="big" id="s${i}">${[0,1,2].map(() => `<span class="dg"><span class="strip">${[...Array(20)].map((_, k) => `<span>${k % 10}</span>`).join("")}</span></span>`).join("")}</div>
         <button class="p3" data-p="${i}" data-d="3">+3</button>
         <button class="pm" data-p="${i}" data-d="1">+1</button>
       </div>
       <div class="rail"><input type="range" id="r${i}" min="0" max="${MAX}" value="${S.score[i]}" />
         <div class="scale"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span><span>120</span><span>140</span><span>160</span></div></div>`;
     document.getElementById("n" + i).oninput = (e) => { S.names[i] = e.target.value; save(); };
-    document.getElementById("r" + i).oninput = (e) => { S.score[i] = +e.target.value; render(); };
+    document.getElementById("r" + i).oninput = (e) => { S.score[i] = +e.target.value; render("slide"); };
   }
-  function render() {
+  // wheel state: last shown digit per column, per player
+  const shown = [null, null];
+  function roll(i, mode) {
+    const v = S.score[i], prev = shown[i], el = document.getElementById("s" + i);
+    const cols = el.querySelectorAll(".dg"), digits = String(v).padStart(3, "0").split("").map(Number);
+    const up = prev === null ? true : v >= prev;
+    cols.forEach((col, k) => {
+      const strip = col.firstElementChild, d = digits[k];
+      col.classList.toggle("off", k < 2 && v < (k === 0 ? 100 : 10));
+      strip.classList.toggle("fast", mode === "slide");
+      const at = (pos, snap) => { strip.classList.toggle("snap", !!snap); strip.style.transform = `translateY(${-pos * 5}%)`; strip._pos = pos; if (snap) void strip.offsetHeight; };
+      clearTimeout(strip._t);
+      let cur = strip._pos ?? d;
+      if (cur >= 10) { at(cur - 10, true); cur -= 10; }                       // finish a pending wrap first
+      if (prev === null || mode === "slide" || mode === "reset") at(d, prev === null);
+      else if (up && d < cur) { at(d + 10); strip._t = setTimeout(() => at(d, true), 600); }  // 9 -> 0 rolls forward
+      else if (!up && d > cur) { at(cur + 10, true); at(d); }                             // 0 -> 9 rolls backward
+      else at(d);
+    });
+    if (prev !== null && prev !== v && mode !== "slide") { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+    shown[i] = v;
+  }
+  function render(mode) {
     for (const i of [0, 1]) {
-      document.getElementById("s" + i).textContent = S.score[i];
+      roll(i, mode);
       document.getElementById("r" + i).value = S.score[i];
       document.getElementById("f" + i).textContent = S.frames[i];
     }
@@ -105,8 +138,8 @@
     if (b.dataset.p !== undefined) { const i = +b.dataset.p; S.score[i] = Math.max(0, Math.min(MAX, S.score[i] + +b.dataset.d)); render(); }
     if (b.dataset.f !== undefined) { const i = +b.dataset.f; S.frames[i] = Math.max(0, S.frames[i] + +b.dataset.d); render(); }
   });
-  document.getElementById("resetScores").onclick = () => { if (confirm("Set both scores to 0?")) { S.score = [0, 0]; render(); } };
-  document.getElementById("resetAll").onclick = () => { if (confirm("Reset scores and frames?")) { S.score = [0, 0]; S.frames = [0, 0]; render(); } };
+  document.getElementById("resetScores").onclick = () => { if (confirm("Set both scores to 0?")) { S.score = [0, 0]; render("reset"); } };
+  document.getElementById("resetAll").onclick = () => { if (confirm("Reset scores and frames?")) { S.score = [0, 0]; S.frames = [0, 0]; render("reset"); } };
   render();
 </script>
 <script>
