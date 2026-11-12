@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Groups" />
+<meta name="theme-color" content="#0f172a" />
+<link rel="apple-touch-icon" href="icon-groups.png" />
+<title>Group builder</title>
+<style>
+  html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+  *, *::before, *::after { touch-action: manipulation; box-sizing: border-box; }
+  button { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; cursor: pointer; font-family: inherit; }
+  :root { --bg: #0f172a; --card: #1e293b; --ink: #f1f5f9; --muted: #94a3b8; --acc: #8b5cf6; --acc2: #22c55e; --line: #334155; --deep: #0b1220; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { margin: 6px 0 4px; font-size: 28px; }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  .lbl { display: block; font-weight: 700; margin-bottom: 8px; }
+  textarea { width: 100%; min-height: 76px; resize: vertical; border-radius: 12px; border: 1px solid var(--line); background: var(--deep); color: var(--ink); padding: 12px; font-size: 16px; line-height: 1.4; font-family: inherit; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .btn { border: 0; border-radius: 12px; padding: 12px 18px; font-size: 16px; font-weight: 700; min-height: 44px; }
+  .btn.sm { padding: 8px 12px; font-size: 15px; min-height: 40px; }
+  .go { background: var(--acc); color: #fff; flex: 1; min-width: 160px; }
+  .ghost { background: var(--deep); color: var(--ink); border: 1px solid var(--line); }
+  .count { color: var(--acc2); font-weight: 700; }
+  .err { color: #fca5a5; font-size: 14px; margin-top: 8px; min-height: 18px; }
+  .seg { display: inline-flex; background: var(--deep); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+  .seg button { border: 0; background: transparent; color: var(--muted); padding: 9px 12px; border-radius: 9px; font-size: 14px; font-weight: 600; min-height: 38px; }
+  .seg button.on { background: var(--acc); color: #fff; }
+
+  /* roster */
+  .tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 14px 0 8px; flex-wrap: wrap; }
+  .tools .row { gap: 6px; }
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .p { display: flex; align-items: center; gap: 8px; background: var(--deep); border: 1px solid var(--line); border-radius: 12px; padding: 6px 6px 6px 8px; }
+  .p.off { opacity: .45; }
+  .chk { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: transparent; color: #fff; font-size: 17px; font-weight: 800; flex: none; padding: 0; }
+  .p:not(.off) .chk { background: var(--acc2); border-color: var(--acc2); }
+  .nm { flex: 1; min-width: 0; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nm small { display: block; color: var(--muted); font-size: 12px; margin-top: 1px; }
+  .step { display: flex; align-items: center; gap: 4px; flex: none; }
+  .rb { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 20px; font-weight: 700; padding: 0; line-height: 1; }
+  .rv { width: 30px; text-align: center; font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; color: #c4b5fd; }
+  .del { width: 34px; height: 34px; border: 0; background: transparent; color: var(--muted); font-size: 20px; padding: 0; flex: none; }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 2px; }
+
+  /* group settings */
+  .gset { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .big { display: flex; align-items: center; gap: 10px; }
+  .big .rb { width: 46px; height: 46px; font-size: 24px; }
+  .big .rv { width: 44px; font-size: 30px; color: var(--ink); }
+  .plan { color: var(--muted); font-size: 14px; margin-top: 10px; }
+
+  /* results */
+  .sum { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .sum .s { font-size: 14px; color: var(--muted); }
+  .sum .s b { color: var(--ink); }
+  .bal { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: .03em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .grp { background: var(--deep); border: 1px solid var(--line); border-top: 4px solid var(--gc); border-radius: 12px; padding: 10px 12px 12px; animation: pop .4s cubic-bezier(.34,1.56,.64,1) both; }
+  .grp header { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+  .grp h3 { margin: 0; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: var(--gc); }
+  .grp .tot { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .grp .tot b { color: var(--ink); font-size: 18px; }
+  .bar { height: 6px; border-radius: 3px; background: #1e293b; margin: 0 0 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--gc); border-radius: 3px; }
+  .grp ul { list-style: none; margin: 0; padding: 0; }
+  .grp li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 2px; border-top: 1px dashed var(--line); font-size: 17px; min-height: 36px; }
+  .grp li:first-of-type { border-top: 0; }
+  .grp li span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grp li .r { flex: none; font-size: 13px; font-weight: 800; color: #c4b5fd; background: rgba(139,92,246,.15); border-radius: 8px; padding: 2px 7px; font-variant-numeric: tabular-nums; }
+  .grp.bye { border-style: dashed; border-top: 1px dashed #64748b; --gc: #94a3b8; }
+  .hideR .r, .hideR .tot, .hideR .bar, .hideR .rated { display: none !important; }
+  .stale { color: #fbbf24; font-size: 14px; margin: 0 0 10px; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+  .acts { margin-top: 12px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: #fff; color: #111; font-weight: 700; padding: 10px 16px; border-radius: 999px; opacity: 0; transition: .25s; pointer-events: none; z-index: 50; }
+  .toast.on { opacity: 1; transform: translateX(-50%); }
+  .foot { color: var(--muted); font-size: 13px; text-align: center; margin-top: 18px; }
+  .foot a { color: var(--muted); }
+  .foot button { background: none; border: 0; color: var(--muted); text-decoration: underline; font-size: 13px; padding: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Group builder</h1>
+  <p class="sub">Rate everyone, choose how many groups, and get groups with equal total skill.</p>
+
+  <div class="card">
+    <label class="lbl" for="add">Add players</label>
+    <textarea id="add" placeholder="Alex 8&#10;Bea 6, Chris 4&#10;Dev"></textarea>
+    <div class="row" style="margin-top:10px"><button class="btn ghost sm" id="addBtn" style="flex:1">Add to list</button></div>
+    <div class="hint">One per line or separated by commas. Put a rating after the name (1–10), like <b>Alex 8</b>. No number means 5.</div>
+
+    <div class="tools">
+      <div><span class="count" id="cnt">0</span> <span id="cntTxt" style="color:var(--muted);font-size:14px">playing</span></div>
+      <div class="row">
+        <button class="btn ghost sm" id="allBtn">All in</button>
+        <button class="btn ghost sm" id="noneBtn">All out</button>
+        <button class="btn ghost sm" id="sortBtn">Sort</button>
+        <button class="btn ghost sm" id="clrBtn">Clear</button>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="hint">Tap ✓ to mark who's playing today. Your list and ratings are saved on this phone.</div>
+  </div>
+
+  <div class="card">
+    <div class="gset">
+      <span class="lbl" style="margin:0">Number of groups</span>
+      <div class="big"><button class="rb" id="kMinus" aria-label="Fewer groups">−</button><span class="rv" id="kVal">2</span><button class="rb" id="kPlus" aria-label="More groups">+</button></div>
+    </div>
+    <div id="extraWrap" style="margin-top:12px">
+      <div class="row" style="justify-content:space-between">
+        <span style="font-size:14px;color:var(--muted)">If it doesn't divide evenly</span>
+        <div class="seg" id="extraSeg"><button data-x="bye">Extras sit out</button><button data-x="join">Extras join</button></div>
+      </div>
+    </div>
+    <div class="plan" id="plan"></div>
+    <div class="row" style="margin-top:12px"><button class="btn go" id="goBtn">Build balanced groups</button></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="card" id="res" hidden>
+    <div class="sum">
+      <div class="s rated" id="sumTxt"></div>
+      <button class="btn ghost sm" id="eyeBtn">Hide ratings</button>
+    </div>
+    <p class="stale" id="stale" hidden>The list has changed since this build. Tap Rebuild to update.</p>
+    <div class="grid" id="grid"></div>
+    <div class="row acts">
+      <button class="btn go" id="reBtn">Rebuild (new mix)</button>
+      <button class="btn ghost" id="copyBtn">Copy</button>
+    </div>
+    <div class="hint">Rebuild picks another split that's just as balanced, if one exists. Copy leaves out ratings while they're hidden.</div>
+  </div>
+
+  <div class="foot"><a href="./">← Pocket tools</a> · <button id="byeReset">Reset sit-out history</button></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const KEY = "wg-state";
+  const COLORS = [["Red", "#ef4444"], ["Blue", "#3b82f6"], ["Green", "#22c55e"], ["Yellow", "#eab308"], ["Purple", "#a855f7"], ["Orange", "#f97316"], ["Pink", "#ec4899"], ["Teal", "#14b8a6"], ["White", "#e2e8f0"], ["Brown", "#a16207"], ["Grey", "#64748b"], ["Lime", "#84cc16"]];
+  const MAXK = COLORS.length;
+
+  let S = { people: [], k: 2, extra: "bye", hideR: false, last: null };
+  try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(S, JSON.parse(raw)); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+  // ---- randomness (crypto) ----
+  function rint(n) { const a = new Uint32Array(1), lim = Math.floor(0x100000000 / n) * n; let x; do { crypto.getRandomValues(a); x = a[0]; } while (x >= lim); return x % n; }
+  function shuffle(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rint(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function haptic() {
+    try { navigator.vibrate && navigator.vibrate(12); } catch (e) {}
+    try { const l = document.createElement("label"); l.style.display = "none"; const i = document.createElement("input"); i.type = "checkbox"; i.setAttribute("switch", ""); l.appendChild(i); document.head.appendChild(l); l.click(); l.remove(); } catch (e) {}
+  }
+  function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("on"), 1400); }
+
+  const clampR = (r) => Math.max(1, Math.min(10, Math.round(r)));
+  const fmt = (x) => (Math.round(x * 10) / 10).toString();
+  const playing = () => S.people.filter((p) => p.on);
+  const find = (n) => S.people.find((p) => p.n.toLowerCase() === String(n).toLowerCase());
+
+  // ---- roster ----
+  function addFromText() {
+    const parts = $("add").value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    let added = 0, updated = 0;
+    for (const part of parts) {
+      const m = part.match(/^(.*?)[\s:=\-–]+(\d+(?:\.\d+)?)\s*$/);
+      let name = part, r = null;
+      if (m && m[1].trim()) { name = m[1].trim(); r = clampR(parseFloat(m[2])); }
+      name = name.replace(/\s+/g, " ").slice(0, 40);
+      if (!name) continue;
+      const ex = find(name);
+      if (ex) { if (r !== null) ex.r = r; ex.on = true; updated++; }
+      else { S.people.push({ n: name, r: r === null ? 5 : r, on: true, bye: 0 }); added++; }
+    }
+    $("add").value = "";
+    save(); renderList();
+    if (added || updated) toast(added ? `Added ${added}` + (updated ? `, updated ${updated}` : "") : `Updated ${updated}`);
+  }
+
+  function renderList() {
+    const L = $("list");
+    if (!S.people.length) { L.innerHTML = `<div class="empty">No players yet. Add some above.</div>`; }
+    else L.innerHTML = S.people.map((p, i) => `
+      <div class="p${p.on ? "" : " off"}" data-i="${i}">
+        <button class="chk" data-a="on" aria-label="Playing">${p.on ? "✓" : ""}</button>
+        <div class="nm">${esc(p.n)}${p.bye ? `<small>sat out ${p.bye}×</small>` : ""}</div>
+        <div class="step"><button class="rb" data-a="dn" aria-label="Lower rating">−</button><span class="rv">${p.r}</span><button class="rb" data-a="up" aria-label="Raise rating">+</button></div>
+        <button class="del" data-a="del" aria-label="Remove">×</button>
+      </div>`).join("");
+    const pl = playing();
+    $("cnt").textContent = pl.length;
+    $("cntTxt").textContent = `of ${S.people.length} playing` + (pl.length ? ` · avg ${fmt(pl.reduce((a, p) => a + p.r, 0) / pl.length)}` : "");
+    renderSettings();
+    markStale();
+  }
+
+  $("list").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-a]"); if (!b) return;
+    const i = +b.closest(".p").dataset.i, p = S.people[i]; if (!p) return;
+    const a = b.dataset.a;
+    if (a === "on") p.on = !p.on;
+    else if (a === "up") p.r = clampR(p.r + 1);
+    else if (a === "dn") p.r = clampR(p.r - 1);
+    else if (a === "del") S.people.splice(i, 1);
+    haptic(); save(); renderList();
+  });
+
+  // ---- settings ----
+  function renderSettings() {
+    const n = playing().length;
+    $("kVal").textContent = S.k;
+    [...$("extraSeg").children].forEach((b) => b.classList.toggle("on", b.dataset.x === S.extra));
+    const rem = n % S.k;
+    $("extraWrap").style.display = n >= S.k && rem ? "" : "none";
+    let plan = "";
+    if (n < S.k) plan = n ? `You need at least ${S.k} players for ${S.k} groups.` : "";
+    else if (!rem) plan = `${S.k} groups of ${n / S.k}.`;
+    else if (S.extra === "bye") { const m = Math.floor(n / S.k); plan = `${S.k} groups of ${m}. ${rem} sit${rem > 1 ? "" : "s"} out (whoever has sat out least).`; }
+    else { const m = Math.floor(n / S.k); plan = `${rem} group${rem > 1 ? "s" : ""} of ${m + 1}, ${S.k - rem} of ${m}.`; }
+    $("plan").textContent = plan;
+  }
+  $("kMinus").onclick = () => { if (S.k > 2) { S.k--; haptic(); save(); renderSettings(); markStale(); } };
+  $("kPlus").onclick = () => { if (S.k < MAXK) { S.k++; haptic(); save(); renderSettings(); markStale(); } };
+  $("extraSeg").onclick = (ev) => { const b = ev.target.closest("button"); if (!b) return; S.extra = b.dataset.x; haptic(); save(); renderSettings(); markStale(); };
+
+  // ---- balancing ----
+  // sizes: array of group sizes; players: [{n,r}]. Returns list of groups (arrays of players).
+  function balance(players, sizes) {
+    const k = sizes.length, n = players.length;
+    const mean = players.reduce((a, p) => a + p.r, 0) / k;
+    const RESTARTS = Math.max(60, Math.min(400, Math.floor(30000 / Math.max(1, n * n / 4))));
+    let best = null, bestKey = null; const pool = new Map();
+    for (let t = 0; t < RESTARTS; t++) {
+      // start: half snake draft (strongest first, random tie order), half pure random
+      let order = shuffle(players);
+      if (t % 2 === 0) order = order.map((p, i) => ({ p, i })).sort((a, b) => b.p.r - a.p.r || a.i - b.i).map((x) => x.p);
+      const g = sizes.map(() => []), tot = new Array(k).fill(0);
+      const gOrder = shuffle([...Array(k).keys()]);
+      let dir = 1, gi = 0;
+      for (const p of order) {
+        // snake across groups that still have room
+        let guard = 0;
+        while (g[gOrder[gi]].length >= sizes[gOrder[gi]] && guard++ < 4 * k) { gi += dir; if (gi >= k) { gi = k - 1; dir = -1; } else if (gi < 0) { gi = 0; dir = 1; } }
+        const G = gOrder[gi]; g[G].push(p); tot[G] += p.r;
+        gi += dir; if (gi >= k) { gi = k - 1; dir = -1; } else if (gi < 0) { gi = 0; dir = 1; }
+      }
+      // hill-climb on sum of squared deviations, via swaps (sizes stay fixed)
+      let improved = true, it = 0;
+      while (improved && it++ < 200) {
+        improved = false;
+        for (const a of shuffle([...Array(k).keys()])) for (let b = 0; b < k; b++) {
+          if (a === b) continue;
+          for (let i = 0; i < g[a].length; i++) for (let j = 0; j < g[b].length; j++) {
+            const d = g[b][j].r - g[a][i].r; if (!d) continue;
+            const before = (tot[a] - mean) ** 2 + (tot[b] - mean) ** 2;
+            const after = (tot[a] + d - mean) ** 2 + (tot[b] - d - mean) ** 2;
+            if (after < before - 1e-9) { const x = g[a][i]; g[a][i] = g[b][j]; g[b][j] = x; tot[a] += d; tot[b] -= d; improved = true; }
+          }
+        }
+      }
+      const range = Math.max(...tot) - Math.min(...tot);
+      const ssd = tot.reduce((s, x) => s + (x - mean) ** 2, 0);
+      const score = range * 1e6 + ssd;
+      const key = g.map((x) => x.map((p) => p.n).sort().join("\u0001")).sort().join("\u0002");
+      if (!best || score < best.score - 1e-9) { best = { score }; pool.clear(); }
+      if (score <= best.score + 1e-9 && !pool.has(key)) pool.set(key, g.map((x) => x.slice()));
+    }
+    return [...pool.entries()];
+  }
+
+  function build() {
+    const err = $("err"); err.textContent = "";
+    const pl = playing(), k = S.k, n = pl.length;
+    if (n < k) { err.textContent = n ? `Only ${n} playing. Add players or use fewer groups.` : "Add some players first."; return; }
+    if (n < 2 * k && S.extra === "bye" && n % k) { /* still fine: groups of 1 */ }
+    const rem = n % k;
+    let byes = [], inPlay = pl;
+    let sizes;
+    if (rem && S.extra === "bye") {
+      const cand = shuffle(pl).map((p, i) => ({ p, i })).sort((a, b) => (a.p.bye || 0) - (b.p.bye || 0) || a.i - b.i).map((x) => x.p);
+      byes = cand.slice(0, rem); byes.forEach((p) => (p.bye = (p.bye || 0) + 1));
+      inPlay = pl.filter((p) => !byes.includes(p));
+      sizes = new Array(k).fill(Math.floor(n / k));
+    } else {
+      sizes = [...Array(k)].map((_, i) => Math.floor(n / k) + (i < rem ? 1 : 0));
+    }
+    const options = balance(inPlay, sizes);
+    const lastKey = S.last && S.last.key;
+    const fresh = options.filter(([key]) => key !== lastKey);
+    const [key, groups] = (fresh.length ? fresh : options)[rint((fresh.length ? fresh : options).length)];
+    const shuffledGroups = shuffle(groups);
+    S.last = { key, groups: shuffledGroups.map((g) => g.map((p) => p.n)), byes: byes.map((p) => p.n), sig: sig(), alts: options.length };
+    haptic(); save(); renderList(); renderResult(true);
+    $("res").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  const sig = () => JSON.stringify([S.k, S.extra, playing().map((p) => [p.n, p.r]).sort()]);
+
+  function markStale() { if (S.last) $("stale").hidden = S.last.sig === sig(); }
+
+  function renderResult(anim) {
+    const R = S.last; if (!R) { $("res").hidden = true; return; }
+    $("res").hidden = false;
+    $("res").classList.toggle("hideR", !!S.hideR);
+    $("eyeBtn").textContent = S.hideR ? "Show ratings" : "Hide ratings";
+    const rOf = (n) => (find(n) ? find(n).r : 0);
+    const groups = R.groups.map((g, i) => ({ name: COLORS[i % MAXK][0], col: COLORS[i % MAXK][1], members: g.map((n) => ({ n, r: rOf(n) })) }));
+    groups.forEach((g) => { g.tot = g.members.reduce((a, m) => a + m.r, 0); g.members.sort((a, b) => (S.hideR ? a.n.localeCompare(b.n) : b.r - a.r || a.n.localeCompare(b.n))); });
+    const tots = groups.map((g) => g.tot), max = Math.max(...tots), min = Math.min(...tots);
+    const spread = max - min;
+    const tag = spread === 0 ? ["Perfectly even", "#22c55e"] : spread <= 1 ? ["Very close", "#84cc16"] : spread <= 3 ? ["Close", "#eab308"] : ["Best possible", "#f97316"];
+    $("sumTxt").innerHTML = `Totals <b>${tots.join(" · ")}</b> &nbsp;<span class="bal" style="background:${tag[1]}22;color:${tag[1]}">${tag[0]}${spread ? ` (±${spread})` : ""}</span>`;
+    let html = groups.map((g, i) => `
+      <div class="grp" style="--gc:${g.col};${anim ? `animation-delay:${i * 90}ms` : "animation:none"}">
+        <header><h3>${g.name}</h3><span class="tot">total <b>${g.tot}</b> · avg ${fmt(g.tot / (g.members.length || 1))}</span></header>
+        <div class="bar"><i style="width:${max ? (g.tot / max) * 100 : 0}%"></i></div>
+        <ul>${g.members.map((m) => `<li><span class="n">${esc(m.n)}</span><span class="r">${m.r}</span></li>`).join("")}</ul>
+      </div>`).join("");
+    if (R.byes.length) html += `<div class="grp bye" style="${anim ? `animation-delay:${groups.length * 90}ms` : "animation:none"}"><header><h3>Sits out</h3></header><ul>${R.byes.map((n) => `<li><span class="n">${esc(n)}</span><span class="r">${rOf(n)}</span></li>`).join("")}</ul></div>`;
+    $("grid").innerHTML = html;
+    markStale();
+  }
+
+  function copyText() {
+    const R = S.last; if (!R) return "";
+    const showR = !S.hideR, rOf = (n) => (find(n) ? find(n).r : 0);
+    const lines = R.groups.map((g, i) => {
+      const tot = g.reduce((a, n) => a + rOf(n), 0);
+      const mem = g.slice().sort((a, b) => (showR ? rOf(b) - rOf(a) : 0) || a.localeCompare(b)).map((n) => (showR ? `${n} (${rOf(n)})` : n));
+      return `${COLORS[i % MAXK][0]}${showR ? ` – total ${tot}` : ""}: ${mem.join(", ")}`;
+    });
+    if (R.byes.length) lines.push(`Sitting out: ${R.byes.join(", ")}`);
+    return lines.join("\n");
+  }
+  async function copy() {
+    const txt = copyText(); if (!txt) return;
+    try { await navigator.clipboard.writeText(txt); } catch (e) { const t = document.createElement("textarea"); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    haptic(); toast("Copied");
+  }
+
+  $("addBtn").onclick = addFromText;
+  $("add").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addFromText(); });
+  $("allBtn").onclick = () => { S.people.forEach((p) => (p.on = true)); haptic(); save(); renderList(); };
+  $("noneBtn").onclick = () => { S.people.forEach((p) => (p.on = false)); haptic(); save(); renderList(); };
+  $("sortBtn").onclick = () => { S.sortR = !S.sortR; S.people.sort((a, b) => (S.sortR ? b.r - a.r || a.n.localeCompare(b.n) : a.n.localeCompare(b.n))); toast(S.sortR ? "Sorted by rating" : "Sorted A–Z"); haptic(); save(); renderList(); };
+  $("clrBtn").onclick = () => { if (!S.people.length || !confirm("Remove every player and rating?")) return; S.people = []; S.last = null; save(); renderList(); renderResult(); };
+  $("goBtn").onclick = build;
+  $("reBtn").onclick = build;
+  $("copyBtn").onclick = copy;
+  $("eyeBtn").onclick = () => { S.hideR = !S.hideR; haptic(); save(); renderResult(false); };
+  $("byeReset").onclick = () => { if (!confirm("Reset everyone's sit-out count to 0?")) return; S.people.forEach((p) => (p.bye = 0)); save(); renderList(); toast("Sit-out history reset"); };
+
+  renderList(); renderResult(false);
+</script>
+<script>
+  // no zoom: block pinch + double-tap zoom (iOS ignores user-scalable=no on its own)
+  ["gesturestart", "gesturechange", "gestureend"].forEach((e) => document.addEventListener(e, (ev) => ev.preventDefault(), { passive: false }));
+  let lastTouch = 0;
+  const isText = (el) => el.closest("textarea, select, input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=button])");
+  document.addEventListener("touchend", (ev) => { const now = Date.now(); if (now - lastTouch < 350 && !isText(ev.target)) { ev.preventDefault(); ev.target.closest("button")?.click(); } lastTouch = now; }, { passive: false });
+  document.addEventListener("dblclick", (ev) => ev.preventDefault(), { passive: false });
+  document.addEventListener("touchmove", (ev) => { if (ev.touches.length > 1) ev.preventDefault(); }, { passive: false });
+</script>
+</body>
+</html>
